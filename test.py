@@ -15,7 +15,6 @@ import shutil
 
 app = Flask(__name__)
 
-# Temporary directories for input and output
 UPLOAD_FOLDER = 'uploaded_folder'
 OUTPUT_FOLDER = 'processed_output'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -31,11 +30,9 @@ def scrape():
         return "No files uploaded!", 400
 
     files = request.files.getlist('files')
-
     if not files:
         return "No files selected!", 400
 
-    # Clean up previous uploads
     shutil.rmtree(UPLOAD_FOLDER, ignore_errors=True)
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -44,13 +41,20 @@ def scrape():
             filename = secure_filename(file.filename)
             file_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(file_path)
-            print(f"Saved file: {file_path}")  # Debugging information
+            print(f"Saved file: {file_path}")
 
-    # Use relative path for msedgedriver.exe
-    service = Service(r"./msedgedriver.exe")
+    service = Service("/usr/local/bin/msedgedriver")
     edge_options = Options()
+    edge_options.add_argument("--headless")
+    edge_options.add_argument("--disable-gpu")
     edge_options.add_argument("--start-maximized")
     edge_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    
+    # Additional arguments often needed in containerized headless environments:
+    edge_options.add_argument("--no-sandbox")
+    edge_options.add_argument("--disable-dev-shm-usage")
+    edge_options.add_argument("--no-first-run")
+    edge_options.add_argument("--disable-extensions")
 
     driver = webdriver.Edge(service=service, options=edge_options)
 
@@ -67,7 +71,7 @@ def scrape():
         for filename in os.listdir(UPLOAD_FOLDER):
             if filename.endswith('.xlsx'):
                 file_path = os.path.join(UPLOAD_FOLDER, filename)
-                print(f"Processing file: {file_path}")  # Debugging information
+                print(f"Processing file: {file_path}")
                 df = pd.read_excel(file_path, engine='openpyxl')
 
                 df['Superseded By'] = ''
@@ -112,10 +116,9 @@ def scrape():
                     driver.get(specific_url)
 
                 output_file_path = os.path.join(OUTPUT_FOLDER, filename)
-                print(f"Saving processed file to: {output_file_path}")  # Debugging information
+                print(f"Saving processed file to: {output_file_path}")
                 df.to_excel(output_file_path, index=False)
 
-        # Create a zip file of the output folder
         zip_filename = 'processed_output.zip'
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for root, dirs, files in os.walk(OUTPUT_FOLDER):
@@ -125,11 +128,11 @@ def scrape():
     except Exception as e:
         print("An error occurred:", e)
         driver.save_screenshot("error_debug.png")
-
     finally:
         driver.quit()
 
     return send_file(zip_filename, as_attachment=True)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    # Run without debug mode to prevent multiple processes
+    app.run(debug=False, port=50, host="0.0.0.0")

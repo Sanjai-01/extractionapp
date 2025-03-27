@@ -1,51 +1,41 @@
-FROM python:3.12-bullseye
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
 
-# Install required dependencies
+# Install necessary packages for Selenium and the browser
 RUN apt-get update && apt-get install -y \
     wget \
-    curl \
     unzip \
-    xvfb \
-    libnss3 \
-    libxss1 \
-    libappindicator3-1 \
-    fonts-liberation \
-    libasound2 \
-    libgbm1 \
     libgtk-3-0 \
-    libu2f-udev \
+    libdbus-glib-1-2 \
+    ca-certificates \
     gnupg \
-    libglib2.0-0 \
-    libgconf-2-4 \
-    libfontconfig1 \
-    libx11-xcb1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Microsoft Edge version 134.0.3124.85
-RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" \
-    > /etc/apt/sources.list.d/microsoft-edge.list && \
-    apt-get update && \
-    apt-get install -y microsoft-edge-stable=134.0.3124.85-1
+# Install Microsoft Edge stable for Linux
+RUN wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add - \
+    && echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list \
+    && apt-get update \
+    && apt-get install -y microsoft-edge-stable
 
-# Copy msedgedriver.exe from the local machine to the container
-COPY msedgedriver.exe /usr/local/bin/msedgedriver
-RUN chmod 755 /usr/local/bin/msedgedriver
+# Download and install msedgedriver (Linux version)
+# Replace <VERSION> with the version that matches your installed Edge version
+RUN wget -O /tmp/edgedriver.zip https://msedgedriver.azureedge.net/134.0.3124.85/edgedriver_linux64.zip \
+    && unzip /tmp/edgedriver.zip -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/msedgedriver \
+    && rm /tmp/edgedriver.zip
 
-# Verify the driver is copied correctly
-RUN ls -l /usr/local/bin
-
-# Set the working directory inside the container
+# Set working directory
 WORKDIR /app
 
-# Copy application files from the local machine to the container
-COPY . .
+# Copy and install Python dependencies
+COPY requirements.txt /app/requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy the rest of the application code
+COPY . /app
 
-# Expose the port that the Flask app will run on
-EXPOSE 5000
+# Expose the port your Flask app is using (in your case, 50)
+EXPOSE 50
 
-# Command to run the Flask app
+# Run the Flask app
 CMD ["python", "test.py"]

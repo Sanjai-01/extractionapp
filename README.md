@@ -2,7 +2,7 @@
 
 **Necessary Files and Folder **
 
-Template folder - Index.html - UI
-flask - test.py
-dockerfile 
+Template folder (Index.html) -
+flask (test.py) - 
+dockerfile -
 requirements.txt
